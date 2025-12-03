@@ -403,7 +403,9 @@ namespace eInvoice.Tests.InfraLayer
             };
 
             var result = await sender.MarkPaid(payload);
-            Assert.True(result.FiscalizationDateTime.HasValue);
+            Assert.NotNull(result?.Value);
+            Assert.False(result.Errors.Any());
+            Assert.True(result.Value.FiscalizationDateTime.HasValue);
         }
 
 
@@ -415,7 +417,8 @@ namespace eInvoice.Tests.InfraLayer
 
             var result = await sender.MarkPaid(payload);
             Assert.NotNull(result);
-            Assert.False(result.FiscalizationDateTime.HasValue);
+            Assert.True(result.Errors.Any());
+            Assert.Null(result.Value);
         }
     }
 }

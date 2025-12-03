@@ -64,7 +64,7 @@ public class WeatherForecastController : ControllerBase
         }
 
         var result = await sender.MarkPaid(payload, cancellationToken);
-        if (!string.IsNullOrWhiteSpace(result.Message) || result.FiscalizationDateTime is not null)
+        if (result.Value is not null)
         {
             if (await paidInvoiceRepository.UpdatePaidInvoiceAsync(payload, cancellationToken))
                 return Ok();

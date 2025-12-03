@@ -13,7 +13,7 @@ namespace eInvoice.domain.Adapters
         Task<AdapterResponse<UpdateElectronicInvoice>> SendInvoiceAsync(string invoiceId, bool maskContactinfo = true, CancellationToken cancellationToken = default);
         Task<bool> PingAsync();
         Task<bool> CheckCompanyIdInAms(string companyId, CancellationToken cancellationToken = default); 
-        Task<PaidInvoiceDto> MarkPaid(PaidInvoiceDto payload, CancellationToken cancellationToken = default);
+        Task<AdapterResponse<PaidInvoiceDto>> MarkPaid(PaidInvoiceDto payload, CancellationToken cancellationToken = default);
         Task<RejectedInvoiceDto> MarkRejected(RejectedInvoiceDto payload, CancellationToken cancellationToken = default);
     }
 }

@@ -11,6 +11,7 @@ using Oasis.Names.Specification.Ubl.Schema.Xsd.CommonAggregateComponents._2;
 using Oasis.Names.Specification.Ubl.Schema.Xsd.CommonBasicComponents._2;
 using Oasis.Names.Specification.Ubl.Schema.Xsd.CommonExtensionComponents._2;
 using Oasis.Names.Specification.Ubl.Schema.Xsd.Invoice._2;
+using System.ComponentModel.DataAnnotations;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text;
@@ -599,19 +600,17 @@ internal class InvoiceSender : IinvoiceSender, IInvoiceSenderValue<InvoiceType>
         return result;
     }
 
-    public async Task<PaidInvoiceDto> MarkPaid(PaidInvoiceDto invoice, CancellationToken cancellationToken = default)
+    public async Task<AdapterResponse<PaidInvoiceDto>> MarkPaid(PaidInvoiceDto invoice, CancellationToken cancellationToken = default)
     {
         logger.LogTrace($"Start {nameof(MarkPaid)}");
-
-        if (invoice == null || string.IsNullOrWhiteSpace(invoice.InvoiceNumber))
-        {
-            logger.LogWarning("Argument cannot be null");
-            return new(); // TODO change to result pattern
-        }
 
         try
         {
             var request = MapInvoiceToMarkPaidRequest(invoice);
+            if (request.request.ValidateMarkPaidWithoutElectronicId() is IReadOnlyList<ValidationResult> vr && vr.Any())
+            {
+                throw new ValidationException($"Mark paid request validation failed: {string.Join(',', vr.Select(v => v.ErrorMessage))}");
+            }
 
             logger.LogTrace("Sending mark paid request {@payload} to {destination}", request.request, request.destination);
             var response = await _httpClient.PostAsJsonAsync(request.destination, request.request, cancellationToken);
@@ -620,20 +619,17 @@ internal class InvoiceSender : IinvoiceSender, IInvoiceSenderValue<InvoiceType>
 
             var message = await response.Content.ReadFromJsonAsync<MarkPaidResponse>(cancellationToken);
             logger.LogTrace("Response message received: {@response}", message);
-            if (response.StatusCode == HttpStatusCode.OK && message?.EncodedXml is not null)
-            {
-                logger.LogInformation("Mark paid request successful");
-                invoice.Message = message.EncodedXml;
-                invoice.FiscalizationDateTime = message.FiscalizationTimestamp;
-                return invoice;
-            }
+            response.EnsureSuccessStatusCode();
 
-            return invoice;
+            logger.LogInformation("Mark paid request successful");
+            invoice.Message = message.EncodedXml;
+            invoice.FiscalizationDateTime = message.FiscalizationTimestamp;
+            return AdapterResponse<PaidInvoiceDto>.Success(invoice);
         }
         catch (Exception ex)
         {
-            logger.LogWarning(ex, "Error occured while sending information invoice paid");
-            return invoice;
+            logger.LogWarning(ex, "Error occured while sending information invoice paid {invoice}", invoice.InvoiceNumber);
+            return AdapterResponse<PaidInvoiceDto>.Failure(ex);
         }
         finally
         {
@@ -723,8 +719,8 @@ internal class InvoiceSender : IinvoiceSender, IInvoiceSenderValue<InvoiceType>
         if (invoice.IsRegistered)
         {
             rejectRequest.ElectronicId = 3077401; // TODO remove this and uncomment code under mer for demo environemnt doesn't support other companies than dummy ID 3077401 paidObject.CompanyId;
-                                                    //if (int.TryParse(paidObject.CompanyId, out var electronicId))
-                                                    //    markPaidRequest.ElectronicId = electronicId;
+                                                  //if (int.TryParse(paidObject.CompanyId, out var electronicId))
+                                                  //    markPaidRequest.ElectronicId = electronicId;
 
             rejectRequest.IssueDate = invoice.IssueDate;
             destination = configuration.RejectWithElectronicId;
